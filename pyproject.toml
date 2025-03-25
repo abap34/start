@@ -8,12 +8,15 @@ authors = [
 dependencies = [
     "python-dotenv>=1.1.0",
     "ticktick-py>=2.0.3",
+    "textual>=2.1.2",
+    "pydantic>=2.10.6",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
 
 [project.scripts]
 start = "start.cli:main"
+start-dash = "start.tui:main"
 
 [build-system]
 requires = ["hatchling"]

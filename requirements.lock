@@ -10,12 +10,32 @@
 #   universal: false
 
 -e file:.
+annotated-types==0.7.0
+    # via pydantic
 certifi==2025.1.31
     # via requests
 charset-normalizer==2.0.12
     # via requests
 idna==3.10
     # via requests
+linkify-it-py==2.0.3
+    # via markdown-it-py
+markdown-it-py==3.0.0
+    # via mdit-py-plugins
+    # via rich
+    # via textual
+mdit-py-plugins==0.4.2
+    # via markdown-it-py
+mdurl==0.1.2
+    # via markdown-it-py
+platformdirs==4.3.7
+    # via textual
+pydantic==2.10.6
+    # via start
+pydantic-core==2.27.2
+    # via pydantic
+pygments==2.19.1
+    # via rich
 python-dotenv==1.1.0
     # via start
 pytz==2021.1
@@ -24,8 +44,18 @@ regex==2021.4.4
     # via ticktick-py
 requests==2.26.0
     # via ticktick-py
+rich==13.9.4
+    # via textual
+textual==2.1.2
+    # via start
 ticktick-py==2.0.3
     # via start
+typing-extensions==4.12.2
+    # via pydantic
+    # via pydantic-core
+    # via textual
+uc-micro-py==1.0.3
+    # via linkify-it-py
 urllib3==1.26.7
     # via requests
     # via ticktick-py
