@@ -4,7 +4,6 @@ from typing import List, Optional, Callable, Any, TypeVar, cast
 import requests
 from pydantic import BaseModel
 
-
 class Project(BaseModel):
     id: str
     name: str
@@ -38,6 +37,49 @@ class ProjectData(BaseModel):
     tasks: List[Task] = []
     columns: Optional[List[dict]] = None
 
+class TaskCreate(BaseModel):
+    title: str
+    projectId: str
+    content: Optional[str] = None
+    desc: Optional[str] = None
+    isAllDay: Optional[bool] = None
+    startDate: Optional[datetime] = None
+    dueDate: Optional[datetime] = None
+    timeZone: Optional[str] = None
+    reminders: Optional[List[str]] = None
+    repeatFlag: Optional[str] = None
+    priority: Optional[int] = None
+    sortOrder: Optional[int] = None
+
+class TaskUpdate(BaseModel):
+    id: str
+    projectId: str
+    title: Optional[str] = None
+    content: Optional[str] = None
+    desc: Optional[str] = None
+    isAllDay: Optional[bool] = None
+    startDate: Optional[datetime] = None
+    dueDate: Optional[datetime] = None
+    timeZone: Optional[str] = None
+    reminders: Optional[List[str]] = None
+    repeatFlag: Optional[str] = None
+    priority: Optional[int] = None
+    sortOrder: Optional[int] = None
+
+class ProjectCreate(BaseModel):
+    name: str
+    color: Optional[str] = None
+    sortOrder: Optional[int] = 0
+    viewMode: Optional[str] = None
+    kind: Optional[str] = None
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    sortOrder: Optional[int] = None
+    viewMode: Optional[str] = None
+    kind: Optional[str] = None
+
 def _api_get(url: str, token: str) -> Optional[dict]:
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.get(url, headers=headers)
@@ -45,13 +87,33 @@ def _api_get(url: str, token: str) -> Optional[dict]:
         try:
             return response.json()
         except Exception as e:
-            print(f"レスポンスのパースに失敗しました: {e}")
+            print(f"Failed to parse response: {e}")
             return None
     else:
-        print(f"API GET 失敗: {response.status_code} {response.text}")
+        print(f"API GET failed: {response.status_code} {response.text}")
         return None
 
-# ----- ダミーデータ定義 -----
+def _api_post(url: str, token: str, json_data: dict) -> Optional[dict]:
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    response = requests.post(url, headers=headers, json=json_data)
+    if response.status_code in (200, 201):
+        try:
+            return response.json()
+        except Exception as e:
+            print(f"Failed to parse POST response: {e}")
+            return None
+    else:
+        print(f"API POST failed: {response.status_code} {response.text}")
+        return None
+
+def _api_delete(url: str, token: str) -> bool:
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.delete(url, headers=headers)
+    if response.status_code in (200, 204):
+        return True
+    else:
+        print(f"API DELETE failed: {response.status_code} {response.text}")
+        return False
 
 def get_dummy_all_projects(token: str) -> List[Project]:
     return [
@@ -111,7 +173,7 @@ def get_all_projects(token: str) -> List[Project]:
     try:
         return [Project.parse_obj(item) for item in data]
     except Exception as e:
-        print("プロジェクトのパースに失敗しました:", e)
+        print(f"Failed to parse projects: {e}")
         return []
 
 @mock(get_dummy_project_data)
@@ -123,27 +185,84 @@ def get_project_data(project_id: str, token: str) -> Optional[ProjectData]:
     try:
         return ProjectData.model_validate(data)
     except Exception as e:
-        print(f"プロジェクトデータのパースに失敗しました (projectId={project_id}):", e)
+        print(f"Failed to parse project data (projectId={project_id}): {e}")
         return None
 
-def display_projects_and_tasks(token: str) -> None:
-    projects = get_all_projects(token)
-    if not projects:
-        print("プロジェクトが存在しません。")
-        return
+def get_task(project_id: str, task_id: str, token: str) -> Optional[Task]:
+    url = f"https://api.ticktick.com/open/v1/project/{project_id}/task/{task_id}"
+    data = _api_get(url, token)
+    if data is None:
+        return None
+    try:
+        return Task.parse_obj(data)
+    except Exception as e:
+        print(f"Failed to parse task: {e}")
+        return None
 
-    for project in projects:
-        print(f"【プロジェクト】 {project.name} (ID: {project.id})")
-        project_data = get_project_data(project.id, token)
-        if project_data:
-            if project_data.tasks:
-                print("  └─ タスク一覧:")
-                for task in project_data.tasks:
-                    status_str = "Completed" if task.status == 2 else "Normal"
-                    memo = task.content or ""
-                    print(f"      ・ {task.title} (ID: {task.id}) - Status: {status_str}, Memo: {memo}")
-            else:
-                print("  └─ タスクはありません。")
-        else:
-            print("  └─ プロジェクトデータの取得に失敗しました。")
-        print("-" * 40)
+def create_task(task: TaskCreate, token: str) -> Optional[Task]:
+    url = "https://api.ticktick.com/open/v1/task"
+    data = _api_post(url, token, task.dict(exclude_unset=True))
+    if data is None:
+        return None
+    try:
+        return Task.parse_obj(data)
+    except Exception as e:
+        print(f"Failed to parse created task: {e}")
+        return None
+
+def update_task(task_id: str, task: TaskUpdate, token: str) -> Optional[Task]:
+    url = f"https://api.ticktick.com/open/v1/task/{task_id}"
+    data = _api_post(url, token, task.dict(exclude_unset=True))
+    if data is None:
+        return None
+    try:
+        return Task.parse_obj(data)
+    except Exception as e:
+        print(f"Failed to parse updated task: {e}")
+        return None
+
+def complete_task(project_id: str, task_id: str, token: str) -> bool:
+    url = f"https://api.ticktick.com/open/v1/project/{project_id}/task/{task_id}/complete"
+    data = _api_post(url, token, {})
+    return data is not None
+
+def delete_task(project_id: str, task_id: str, token: str) -> bool:
+    url = f"https://api.ticktick.com/open/v1/project/{project_id}/task/{task_id}"
+    return _api_delete(url, token)
+
+def get_project_by_id(project_id: str, token: str) -> Optional[Project]:
+    url = f"https://api.ticktick.com/open/v1/project/{project_id}"
+    data = _api_get(url, token)
+    if data is None:
+        return None
+    try:
+        return Project.parse_obj(data)
+    except Exception as e:
+        print(f"Failed to parse project: {e}")
+        return None
+
+def create_project(project: ProjectCreate, token: str) -> Optional[Project]:
+    url = "https://api.ticktick.com/open/v1/project"
+    data = _api_post(url, token, project.dict(exclude_unset=True))
+    if data is None:
+        return None
+    try:
+        return Project.parse_obj(data)
+    except Exception as e:
+        print(f"Failed to parse created project: {e}")
+        return None
+
+def update_project(project_id: str, project: ProjectUpdate, token: str) -> Optional[Project]:
+    url = f"https://api.ticktick.com/open/v1/project/{project_id}"
+    data = _api_post(url, token, project.dict(exclude_unset=True))
+    if data is None:
+        return None
+    try:
+        return Project.parse_obj(data)
+    except Exception as e:
+        print(f"Failed to parse updated project: {e}")
+        return None
+
+def delete_project(project_id: str, token: str) -> bool:
+    url = f"https://api.ticktick.com/open/v1/project/{project_id}"
+    return _api_delete(url, token)
