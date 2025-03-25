@@ -1,7 +1,7 @@
 from textual.app import App, ComposeResult
-from textual.containers import Container
+from textual.containers import Container, Horizontal
 from textual.widgets import DataTable, Footer, Header, Static
-from textual.screen import Screen, ModalScreen
+from textual.screen import Screen
 from textual import log
 import random
 
@@ -10,50 +10,30 @@ def randstr(n):
 
 from .auth import get_access_token
 from .ticktick import get_all_projects, get_project_data
-from .ticktick import Task as TickTickTas
-
-class TaskDetailScreen(ModalScreen):
-    """Modal screen to display task details."""
-
-    def __init__(self, task):
-        super().__init__()
-        self.target_task = task
-
-    def compose(self) -> ComposeResult:
-        """Create the content for the modal."""
-        yield Container(
-            Static(
-                f"Title: {self.target_task.title}\n\n"
-                f"Status: {'Completed' if self.target_task.status == 2 else 'Pending'}\n\n"
-                f"Content: {self.target_task.content or 'No content'}\n\n"
-                f"Start Date: {self.target_task.startDate or 'Not set'}\n\n"
-                f"Due Date: {self.target_task.dueDate or 'Not set'}\n\n",
-                id="task-details"
-            ),
-            id="modal-container"
-        )
-
-    def on_key(self, event):
-        """Close the modal on Escape key."""
-        if event.key == "escape":
-            self.app.pop_screen()
+from .ticktick import Task as TickTickTask
 
 
 class TickTickApp(App):
     """The main TickTick TUI application."""
     
     CSS_PATH = "tui.css"
-    BINDINGS = [("space", "show_task_details", "Show Details"), ("q", "quit", "Quit")]
+    BINDINGS = [("q", "quit", "Quit")]
     
     def __init__(self, token: str):
         super().__init__()
         self.token = token
-        self.tasks: list[TickTickTask] = []
+        self.target_tasks = []
         
     def compose(self) -> ComposeResult:
         """Create the UI layout."""
         yield Header()
-        yield DataTable(id="tasks-table")
+        yield Horizontal(
+            # 左側: タスク一覧
+            DataTable(id="tasks-table"),
+            # 右側: タスク詳細
+            Static("タスクを選択すると詳細が表示されます", id="task-details"),
+            id="main-content"
+        )
         yield Footer()
         
     def on_mount(self):
@@ -73,7 +53,7 @@ class TickTickApp(App):
                 if project_data and project_data.tasks:
                     all_tasks.extend(project_data.tasks)
             
-            self.tasks = all_tasks
+            self.target_tasks = all_tasks
             
             # Update the table
             self.update_tasks_table()
@@ -89,7 +69,7 @@ class TickTickApp(App):
         table.add_columns("Title", "Status", "Due Date")
         
         # Add rows for each task
-        for task in self.tasks:
+        for i, task in enumerate(self.target_tasks):
             status = "Completed" if task.status == 2 else "Pending"
             due_date = task.dueDate.strftime("%Y-%m-%d") if task.dueDate else "-"
             
@@ -97,38 +77,44 @@ class TickTickApp(App):
                 task.title,
                 status,
                 due_date,
-                key=task.id + randstr(5)  
+                key=task.id  # task.id だけを使用して、ランダム文字列は追加しない
             )
         
         # Set cursor type to row for better selection
         table.cursor_type = "row"
     
-    def show_task_details(self, task):
-        """Show details for the selected task."""
-        self.push_screen(TaskDetailScreen(task))
+    def update_task_details(self, task):
+        """Update the task details panel with the selected task information."""
+        details = self.query_one("#task-details", Static)
+        details.update(
+            f"Title: {task.title}\n\n"
+            f"Status: {'Completed' if task.status == 2 else 'Pending'}\n\n"
+            f"Content: {task.content or 'No content'}\n\n"
+            f"Start Date: {task.startDate or 'Not set'}\n\n"
+            f"Due Date: {task.dueDate or 'Not set'}\n\n"
+        )
     
-    def action_show_task_details(self):
-        """Action to show details for the currently selected task (bound to space key)."""
-        table = self.query_one("#tasks-table", DataTable)
-        if table.cursor_row is not None:
-            # 修正: get_row_at が返すのは list なので、row_key を正しく取得する
-            task_id = self.tasks[table.cursor_row].id
-
-            log.info(f"Showing details for task: {task_id}")
-            
-            # Find the task
-            selected_task = next((t for t in self.tasks if t.id == task_id), None)
-            
-            if selected_task:
-                # Show task details
-                self.show_task_details(selected_task)
+    def on_data_table_row_selected(self, event):
+        """Handle row selection in the tasks table."""
+        # Get the selected task ID from the row key
+        task_id = event.row_key
+        
+        # Find the task in the tasks list
+        selected_task = next((t for t in self.target_tasks if t.id == task_id), None)
+        
+        if selected_task:
+            # Update the details panel
+            self.update_task_details(selected_task)
+            log.info(f"Selected task: {selected_task.title}")
 
 
 def main():
     """Entry point for the application."""
     token = get_access_token()
     app = TickTickApp(token)
+    app.title = "Start Over!"
     app.run()
+
 
 
 if __name__ == "__main__":
