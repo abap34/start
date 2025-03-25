@@ -31,6 +31,17 @@ class Task(BaseModel):
     startDate: Optional[datetime] = None
     status: Optional[int] = None
     timeZone: Optional[str] = None
+    items: Optional[List[dict]] = None
+
+class SubTask(BaseModel):
+    id: str
+    status: int
+    title: str
+    sortOrder: int
+    startDate: datetime
+    isAllDay: bool
+    timeZone: str
+    completedTime: datetime
 
 class ProjectData(BaseModel):
     project: Project
@@ -171,7 +182,7 @@ def get_all_projects(token: str) -> List[Project]:
     if data is None:
         return []
     try:
-        return [Project.parse_obj(item) for item in data]
+        return [Project.model_validate(item) for item in data]
     except Exception as e:
         print(f"Failed to parse projects: {e}")
         return []
@@ -194,7 +205,7 @@ def get_task(project_id: str, task_id: str, token: str) -> Optional[Task]:
     if data is None:
         return None
     try:
-        return Task.parse_obj(data)
+        return Task.model_validate(data)
     except Exception as e:
         print(f"Failed to parse task: {e}")
         return None
@@ -205,7 +216,7 @@ def create_task(task: TaskCreate, token: str) -> Optional[Task]:
     if data is None:
         return None
     try:
-        return Task.parse_obj(data)
+        return Task.model_validate(data)
     except Exception as e:
         print(f"Failed to parse created task: {e}")
         return None
@@ -216,7 +227,7 @@ def update_task(task_id: str, task: TaskUpdate, token: str) -> Optional[Task]:
     if data is None:
         return None
     try:
-        return Task.parse_obj(data)
+        return Task.model_validate(data)
     except Exception as e:
         print(f"Failed to parse updated task: {e}")
         return None
@@ -236,7 +247,7 @@ def get_project_by_id(project_id: str, token: str) -> Optional[Project]:
     if data is None:
         return None
     try:
-        return Project.parse_obj(data)
+        return Project.model_validate(data)
     except Exception as e:
         print(f"Failed to parse project: {e}")
         return None
@@ -247,7 +258,7 @@ def create_project(project: ProjectCreate, token: str) -> Optional[Project]:
     if data is None:
         return None
     try:
-        return Project.parse_obj(data)
+        return Project.model_validate(data)
     except Exception as e:
         print(f"Failed to parse created project: {e}")
         return None
@@ -258,7 +269,7 @@ def update_project(project_id: str, project: ProjectUpdate, token: str) -> Optio
     if data is None:
         return None
     try:
-        return Project.parse_obj(data)
+        return Project.model_validate(data)
     except Exception as e:
         print(f"Failed to parse updated project: {e}")
         return None
